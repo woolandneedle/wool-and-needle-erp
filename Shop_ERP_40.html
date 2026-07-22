@@ -3517,7 +3517,7 @@ async function loadState() {
     const [
       clientRows, orderRows, alterationRows, remakeRows,
       apptRows, tailorRows,
-      fabricsSetting, pricingSetting, taxSetting, feesSetting,
+      fabricRows, pricingSetting, taxSetting, feesSetting,
       membershipSetting, emailSetting,
       counters
     ] = await Promise.all([
@@ -3527,7 +3527,7 @@ async function loadState() {
       sbGet('remakes'),
       sbGet('appointments'),
       sbGet('tailors'),
-      sbSettingGet('fabrics'),
+      sbGet('fabrics'),
       sbSettingGet('pricingRules'),
       sbSettingGet('taxRate'),
       sbSettingGet('customFees'),
@@ -3596,7 +3596,22 @@ async function loadState() {
     state.tailorCounter = getCounter('tailorCounter', (state.tailors.length ? Math.max(...state.tailors.map(t=>t.id)) + 1 : 1));
 
     // Settings
-    if (fabricsSetting)    state.fabrics        = fabricsSetting;
+    // Map fabrics table rows into state.fabrics keyed by code
+    state.fabrics = {};
+    (fabricRows || []).forEach(f => {
+      if (!f.code) return;
+      state.fabrics[f.code.toUpperCase()] = {
+        mill:            f.mill            || '',
+        book:            f.book            || '',
+        status:          f.status          || 'active',
+        tags:            f.tags            || [],
+        composition:     f.composition     || {},
+        wholesalePrices: f.wholesale_prices || {},
+        notes:           f.notes           || '',
+        scannedAt:       f.scanned_at      || '',
+        _id:             f.id,
+      };
+    });
     if (feesSetting)       state.customFees      = feesSetting;
     if (membershipSetting) state.membership      = membershipSetting;
     if (emailSetting)      state.emailTemplates  = emailSetting;
@@ -3625,12 +3640,6 @@ async function loadState() {
       if (!state.pricingRules[g.name].multiplier) { state.pricingRules[g.name].multiplier = 2.0; needsMigration = true; }
     });
     if (needsMigration) await savePricing();
-
-    // Seed fabrics if empty
-    if (!fabricsSetting || Object.keys(state.fabrics).length === 0) {
-      state.fabrics = {};
-      await saveFabrics();
-    }
 
     // Rebuild the full app HTML and render
     initApp();
@@ -3755,7 +3764,22 @@ async function saveTailors() {
 }
 async function saveTailorCounter() { await sbCounterSet('tailorCounter', state.tailorCounter); }
 
-async function saveFabrics()               { await sbSettingSet('fabrics',        state.fabrics); }
+async function saveFabrics() {
+  const rows = Object.entries(state.fabrics).map(([code, f]) => ({
+    id:               f._id || undefined,
+    code:             code,
+    mill:             f.mill             || null,
+    book:             f.book             || null,
+    status:           f.status           || 'active',
+    tags:             f.tags             || [],
+    composition:      f.composition      || {},
+    wholesale_prices: f.wholesalePrices  || {},
+    notes:            f.notes            || null,
+    scanned_at:       f.scannedAt        || new Date().toISOString(),
+    updated_at:       new Date().toISOString(),
+  }));
+  if (rows.length) await sbUpsert('fabrics', rows);
+}
 async function savePricing()               { await sbSettingSet('pricingRules',   { ...state.pricingRules, __version:2 }); }
 async function saveTax()                   { await sbSettingSet('taxRate',         state.taxRate); }
 async function saveCustomFees()            { await sbSettingSet('customFees',      state.customFees); }
@@ -5551,8 +5575,9 @@ async function updateGarmentWholesale(code, garmentName, val) {
 async function deleteFabric(code) {
   const ok = await customConfirm(`Remove fabric code ${code}? This cannot be undone.`);
   if (!ok) return;
+  const fabric = state.fabrics[code];
+  if (fabric?._id) await sbDelete('fabrics', fabric._id);
   delete state.fabrics[code];
-  await saveFabrics();
   renderInventory();
   showToast(`${code} removed`);
 }
@@ -8909,6 +8934,9 @@ async function saveEditFabric() {
   const updated  = { ...existing, mill, book, status, tags, composition, swatchBase64 };
 
   if (newCode !== originalCode) {
+    // Delete old row from table, create new one
+    if (existing?._id) await sbDelete('fabrics', existing._id);
+    updated._id = undefined; // new row will get new id
     state.fabrics[newCode] = updated;
     delete state.fabrics[originalCode];
     // Cascade to orders and alterations
