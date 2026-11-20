@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>W&N Swatch Scanner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --charcoal:#1C1B19; --bone:#EDE7DC; --brass:#A87C3F;
+  --brass-bright:#C99A5B; --forest:#2F4A3C; --rust:#B0492C;
+  --line:rgba(28,27,25,0.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:'Inter',sans-serif;background:var(--charcoal);color:var(--bone);min-height:100vh;-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+.header{background:var(--charcoal);padding:14px 20px 12px;display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--brass);position:sticky;top:0;z-index:10;}
+.brand-tag{width:16px;height:22px;background:var(--brass);clip-path:polygon(0 0,100% 0,100% 100%,50% 78%,0 100%);flex-shrink:0;}
+.brand-name{font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--bone);}
+.brand-sub{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--brass-bright);letter-spacing:0.1em;text-transform:uppercase;}
+.erp-link{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--brass);text-decoration:none;letter-spacing:0.06em;text-transform:uppercase;padding:6px 10px;border:1px solid rgba(168,124,63,0.3);border-radius:1px;}
+main{padding:20px 16px 100px;}
+.camera-section{background:rgba(255,255,255,0.04);border:1.5px solid rgba(237,231,220,0.1);border-radius:4px;overflow:hidden;margin-bottom:16px;}
+.camera-preview{width:100%;height:52vh;max-height:380px;background:#000;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+#videoEl{width:100%;height:100%;object-fit:cover;display:none;}
+#capturedImg{width:100%;height:100%;object-fit:cover;display:none;}
+.camera-placeholder{text-align:center;padding:30px;}
+.camera-placeholder div:first-child{font-size:48px;margin-bottom:12px;opacity:0.3;}
+.camera-placeholder div:last-child{font-size:13px;color:rgba(237,231,220,0.4);}
+.camera-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.camera-frame{width:70%;height:70%;border:2px solid rgba(168,124,63,0.6);border-radius:4px;box-shadow:0 0 0 2000px rgba(0,0,0,0.35);}
+.btn-row{display:flex;gap:10px;padding:12px 14px;}
+.btn{flex:1;padding:13px 10px;border:none;border-radius:2px;font-family:'Inter',sans-serif;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:opacity 0.12s;}
+.btn:active{opacity:0.8;}
+.btn-camera{background:var(--brass);color:#fff;}
+.btn-capture{background:var(--forest);color:#fff;}
+.btn-ghost{background:rgba(237,231,220,0.08);color:rgba(237,231,220,0.7);border:1.5px solid rgba(237,231,220,0.12);}
+.btn-upload{background:rgba(168,124,63,0.15);color:var(--brass-bright);border:1.5px solid rgba(168,124,63,0.25);}
+.btn-save{width:100%;padding:16px;background:var(--forest);color:#fff;border:none;border-radius:2px;font-family:'Fraunces',serif;font-size:18px;font-weight:600;cursor:pointer;letter-spacing:0.01em;transition:background 0.12s;}
+.btn-save:disabled{opacity:0.35;cursor:not-allowed;}
+.btn-save:not(:disabled):active{background:#243d31;}
+.status-bar{padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px;border-top:1px solid rgba(237,231,220,0.06);}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.status-dot.idle{background:rgba(237,231,220,0.2);}
+.status-dot.scanning{background:var(--brass);animation:pulse 1s infinite;}
+.status-dot.done{background:var(--forest);}
+.status-dot.error{background:var(--rust);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.results-section{display:none;}
+.section-label{font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--brass-bright);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(237,231,220,0.08);}
+.field{margin-bottom:12px;}
+.field label{font-family:'JetBrains Mono',monospace;font-size:9.5px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(237,231,220,0.4);display:block;margin-bottom:4px;}
+.field input,.field select{width:100%;padding:11px 13px;background:rgba(255,255,255,0.06);border:1.5px solid rgba(237,231,220,0.12);border-radius:2px;font-family:'Inter',sans-serif;font-size:14px;color:var(--bone);outline:none;-webkit-appearance:none;transition:border-color 0.12s;}
+.field input:focus,.field select:focus{border-color:var(--brass);}
+.field input::placeholder{color:rgba(237,231,220,0.25);}
+.field select option{background:var(--charcoal);color:var(--bone);}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.price-field label{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.07em;color:rgba(237,231,220,0.35);display:block;margin-bottom:3px;}
+.price-field input{width:100%;padding:9px 11px;background:rgba(255,255,255,0.06);border:1.5px solid rgba(237,231,220,0.1);border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--bone);outline:none;}
+.price-field input:focus{border-color:var(--brass);}
+.preview-card{background:rgba(168,124,63,0.08);border:1px solid rgba(168,124,63,0.2);border-left:3px solid var(--brass);border-radius:2px;padding:12px 14px;margin-bottom:16px;}
+.preview-code{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--brass-bright);margin-bottom:3px;}
+.preview-mill{font-size:13px;color:rgba(237,231,220,0.6);}
+.preview-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.preview-tag{font-family:'JetBrains Mono',monospace;font-size:10px;background:rgba(237,231,220,0.08);color:rgba(237,231,220,0.5);padding:3px 8px;border-radius:10px;}
+
+/* Mode toggle */
+.mode-toggle{display:flex;gap:0;margin-bottom:16px;border:1.5px solid rgba(168,124,63,0.3);border-radius:2px;overflow:hidden;}
+.mode-btn{flex:1;padding:10px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;border:none;cursor:pointer;transition:all 0.15s;}
+.mode-btn.active{background:var(--brass);color:#fff;}
+.mode-btn:not(.active){background:transparent;color:rgba(237,231,220,0.4);}
+
+/* Multi-scan review list */
+.multi-scan-list{display:none;}
+.multi-fabric-card{background:rgba(255,255,255,0.04);border:1.5px solid rgba(237,231,220,0.1);border-radius:4px;margin-bottom:12px;overflow:hidden;}
+.multi-fabric-header{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;border-bottom:1px solid rgba(237,231,220,0.06);}
+.multi-fabric-check{width:20px;height:20px;flex-shrink:0;accent-color:var(--brass);cursor:pointer;}
+.multi-fabric-code{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px;color:var(--brass-bright);flex:1;}
+.multi-fabric-meta{font-size:11px;color:rgba(237,231,220,0.4);}
+.multi-fabric-body{padding:12px 14px;display:none;}
+.multi-fabric-body.open{display:block;}
+.multi-fabric-field{margin-bottom:8px;}
+.multi-fabric-field label{font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:rgba(237,231,220,0.35);display:block;margin-bottom:3px;}
+.multi-fabric-field input{width:100%;padding:8px 10px;background:rgba(255,255,255,0.06);border:1.5px solid rgba(237,231,220,0.1);border-radius:2px;font-family:'Inter',sans-serif;font-size:13px;color:var(--bone);outline:none;}
+.multi-fabric-field input:focus{border-color:var(--brass);}
+.multi-fabric-field-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--forest);color:#fff;padding:12px 20px;border-radius:2px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:999;white-space:nowrap;letter-spacing:0.04em;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand-tag"></div>
+  <div>
+    <div class="brand-name">Wool &amp; Needle</div>
+    <div class="brand-sub">Swatch Scanner v5</div>
+  </div>
+  <a class="erp-link" href="https://woolandneedle.github.io/wool-and-needle-erp/" target="_blank">↗ ERP</a>
+</div>
+
+<main>
+
+  <!-- Mode toggle -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="modeSingle" onclick="setMode('single')">📷 Single Swatch</button>
+    <button class="mode-btn" id="modePage" onclick="setMode('page')">📄 Full Page</button>
+  </div>
+
+  <!-- Book session (page mode) -->
+  <div id="sessionCard" style="display:none;background:rgba(168,124,63,0.07);border:1.5px solid rgba(168,124,63,0.25);border-radius:4px;padding:14px;margin-bottom:16px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--brass-bright);margin-bottom:10px;">Book being scanned</div>
+    <div class="field-row">
+      <div class="field" style="margin-bottom:8px;"><label>Book (e.g. M54)</label><input type="text" id="sBook" placeholder="Book name" oninput="sessionPersist();sessionRender()"></div>
+      <div class="field" style="margin-bottom:8px;"><label>Mill (optional)</label><input type="text" id="sMill" placeholder="e.g. Marzoni" oninput="sessionPersist()"></div>
+    </div>
+    <div class="mode-toggle" style="margin-bottom:10px;">
+      <button class="mode-btn active" id="sAdd" onclick="sessionSetReplace(false)">Add this book</button>
+      <button class="mode-btn" id="sRep" onclick="sessionSetReplace(true)">Replace book label</button>
+    </div>
+    <div id="sessionStats" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(237,231,220,0.7);margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost" style="padding:10px;" onclick="sessionCheckBook()">✔ Check book total</button>
+      <button class="btn btn-ghost" style="padding:10px;" onclick="sessionNewBook()">＋ New book</button>
+    </div>
+    <div style="font-size:11.5px;color:rgba(237,231,220,0.45);margin-top:10px;line-height:1.5;">Tip: one page per photo. If a page has more than ~20 swatches, photograph the top and bottom halves separately. Codes are fixed automatically when most codes in the book follow one pattern.</div>
+  </div>
+
+  <!-- Camera -->
+  <div class="camera-section">
+    <div class="camera-preview" id="cameraPreview">
+      <video id="videoEl" autoplay playsinline muted></video>
+      <img id="capturedImg" alt="Captured swatch">
+      <div class="camera-placeholder" id="cameraPlaceholder">
+        <div>📷</div>
+        <div id="placeholderText">Tap to open camera or upload a photo</div>
+      </div>
+      <div class="camera-overlay" id="cameraOverlay" style="display:none;">
+        <div class="camera-frame"></div>
+      </div>
+    </div>
+    <div class="status-bar">
+      <div class="status-dot idle" id="statusDot"></div>
+      <span id="statusText">Ready to scan</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-camera" onclick="startCamera()" id="btnCamera">📷 Camera</button>
+      <button class="btn btn-upload" onclick="document.getElementById('fileInput').click()">⬆ Upload</button>
+      <button class="btn btn-capture" onclick="capturePhoto()" id="btnCapture" style="display:none;">⚡ Scan</button>
+      <button class="btn btn-ghost" onclick="resetScanner()" id="btnReset" style="display:none;">↺ Reset</button>
+      <button class="btn btn-ghost" onclick="rereadPage()" id="btnReread" style="display:none;">↻ Re-read</button>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" style="display:none;" onchange="handleFileUpload(this)">
+  </div>
+
+  <!-- Single scan results -->
+  <div class="results-section" id="resultsSection">
+    <div class="preview-card" id="previewCard"></div>
+    <div class="section-label">Fabric Details — Review &amp; Edit</div>
+    <div class="field">
+      <label>Fabric Code *</label>
+      <input type="text" id="fCode" placeholder="e.g. H2004381" style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;text-transform:uppercase;">
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Mill</label><input type="text" id="fMill" placeholder="e.g. Luthai"></div>
+      <div class="field"><label>Book / Collection</label><input type="text" id="fBook" placeholder="e.g. Blending"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:rgba(237,231,220,0.6);margin:-4px 0 12px;cursor:pointer;"><input type="checkbox" id="replaceBookSingle" style="accent-color:var(--brass);"> Replace the fabric's existing book label(s) instead of adding this one</label>
+    <div class="field">
+      <label>Status</label>
+      <select id="fStatus"><option value="active">Active</option><option value="limited">Limited</option><option value="discontinued">Discontinued</option></select>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Wool %</label><input type="number" id="fWool" placeholder="100" min="0" max="100"></div>
+      <div class="field"><label>Cotton %</label><input type="number" id="fCotton" placeholder="65" min="0" max="100"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Polyester %</label><input type="number" id="fPoly" placeholder="35" min="0" max="100"></div>
+      <div class="field"><label>Nylon %</label><input type="number" id="fNylon" placeholder="0" min="0" max="100"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Silk %</label><input type="number" id="fSilk" placeholder="0" min="0" max="100"></div>
+      <div class="field"><label>Linen %</label><input type="number" id="fLinen" placeholder="0" min="0" max="100"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Weight (g/m²)</label><input type="number" id="fWeight" placeholder="280"></div>
+      <div class="field"><label>Origin</label><input type="text" id="fOrigin" placeholder="China"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Color</label><input type="text" id="fColor" placeholder="Navy blue"></div>
+      <div class="field"><label>Pattern</label><input type="text" id="fPattern" placeholder="Plain, stripe, twill..."></div>
+    </div>
+    <div class="field">
+      <label>Season</label>
+      <select id="fSeason">
+        <option value="">— Any —</option>
+        <option value="spring-summer">Spring/Summer</option>
+        <option value="autumn-winter">Autumn/Winter</option>
+        <option value="year-round">Year Round</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Tags <span style="font-weight:400;opacity:0.5;">(comma separated)</span></label>
+      <input type="text" id="fTags" placeholder="cotton, stripe, shirt">
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <input type="text" id="fNotes" placeholder="Optional notes">
+    </div>
+
+    <!-- Remember for next scan -->
+    <div style="background:rgba(168,124,63,0.06);border:1px solid rgba(168,124,63,0.2);border-radius:2px;padding:12px 14px;margin-bottom:16px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--brass-bright);margin-bottom:10px;">Remember for Next Scan</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-mill"       style="accent-color:var(--brass);"> Mill</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-book"       style="accent-color:var(--brass);"> Book</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-status"     style="accent-color:var(--brass);"> Status</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-wool"       style="accent-color:var(--brass);"> Wool %</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-cotton"     style="accent-color:var(--brass);"> Cotton %</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-poly"       style="accent-color:var(--brass);"> Polyester %</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-nylon"      style="accent-color:var(--brass);"> Nylon %</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-weight"     style="accent-color:var(--brass);"> Weight</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-origin"     style="accent-color:var(--brass);"> Origin</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-season"     style="accent-color:var(--brass);"> Season</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-price"      style="accent-color:var(--brass);"> Price</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-refgarment" style="accent-color:var(--brass);"> Ref Garment</label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="sticky-tags"       style="accent-color:var(--brass);"> Tags</label>
+      </div>
+    </div>
+
+    <div class="section-label" style="margin-top:4px;">Reference Pricing</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(237,231,220,0.3);margin-bottom:10px;line-height:1.6;">Enter wholesale price for one garment — others calculated by yardage</div>
+    <div class="field">
+      <label>Reference Garment</label>
+      <select id="fRefGarment" onchange="updatePrices()">
+        <option value="3-Piece Suit">3-Piece Suit</option>
+        <option value="2-Piece Suit">2-Piece Suit</option>
+        <option value="Jacket">Jacket</option>
+        <option value="Trousers">Trousers</option>
+        <option value="Shirt">Shirt</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Wholesale Price ($)</label>
+      <input type="number" id="fRefPrice" placeholder="0.00" step="0.01" min="0" oninput="updatePrices()">
+    </div>
+    <div class="section-label" style="margin-top:4px;">Calculated Prices</div>
+    <div class="price-grid" id="priceGrid"></div>
+    <button class="btn-save" id="btnSave" onclick="saveToSupabase()">💾 Save to Inventory</button>
+  </div>
+
+  <!-- Multi-scan (page) results -->
+  <div class="multi-scan-list" id="multiScanList">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <div id="multiScanHeader" style="font-family:'JetBrains Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--brass-bright);"></div>
+      <label style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(237,231,220,0.5);cursor:pointer;">
+        <input type="checkbox" id="selectAllFabrics" onchange="toggleSelectAll(this)" style="accent-color:var(--brass);"> Select All
+      </label>
+    </div>
+    <div id="multiWarn" style="display:none;background:rgba(176,73,44,0.12);border:1px solid rgba(217,105,74,0.5);color:#f0b3a3;border-radius:2px;padding:10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:12px;"></div>
+    <button class="btn btn-ghost" style="width:100%;margin-bottom:12px;padding:11px;" onclick="showPageCheck()">🔍 Check page — see what was found</button>
+    <div id="multiFabricCards"></div>
+    <button class="btn-save" id="btnSaveAll" onclick="saveAllFabrics()" style="margin-top:8px;">💾 Save Selected to Inventory</button>
+  </div>
+
+</main>
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://pceqnxugmfstghmulvbn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjZXFueHVnbWZzdGdobXVsdmJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2NDUyMjMsImV4cCI6MjA5OTIyMTIyM30.Uu41ueW_lWDR-cFloLWI2vnKJVQJCigh92Qc2XMQULk';
+const EDGE_URL = SUPABASE_URL + '/functions/v1/swatch-scan';
+
+const GARMENTS = [
+  '3-Piece Suit','2-Piece Suit','Jacket','Trousers','Waistcoat','Shirt',
+  'Overcoat','Jeans','Denim Jacket',"Women's 2-Piece Suit","Women's Jacket",
+  "Women's Pants","Women's Skirt","Women's Waistcoat","Women's Shirt","Women's Overcoat"
+];
+const YARDAGE = {
+  '3-Piece Suit':1.0,'2-Piece Suit':0.78,'Jacket':0.55,'Trousers':0.32,
+  'Waistcoat':0.22,'Shirt':0.18,'Overcoat':0.85,'Jeans':0.30,'Denim Jacket':0.50,
+  "Women's 2-Piece Suit":0.75,"Women's Jacket":0.50,"Women's Pants":0.28,
+  "Women's Skirt":0.20,"Women's Waistcoat":0.20,"Women's Shirt":0.16,"Women's Overcoat":0.80
+};
+
+let stream = null;
+let capturedB64 = null;
+let capturedDataUrl = null;
+let capturedMime = 'image/jpeg';
+let scannedData = null;
+let scanMode = 'single';
+let multiFabrics = [];
+
+// ── Sticky fields — persist values between scans ──────────────
+const STICKY_FIELDS = [
+  { id: 'mill',       el: 'fMill',      type: 'text'   },
+  { id: 'book',       el: 'fBook',      type: 'text'   },
+  { id: 'status',     el: 'fStatus',    type: 'select' },
+  { id: 'wool',       el: 'fWool',      type: 'number' },
+  { id: 'cotton',     el: 'fCotton',    type: 'number' },
+  { id: 'poly',       el: 'fPoly',      type: 'number' },
+  { id: 'nylon',      el: 'fNylon',     type: 'number' },
+  { id: 'silk',       el: 'fSilk',      type: 'number' },
+  { id: 'linen',      el: 'fLinen',     type: 'number' },
+  { id: 'weight',     el: 'fWeight',    type: 'number' },
+  { id: 'origin',     el: 'fOrigin',    type: 'text'   },
+  { id: 'color',      el: 'fColor',     type: 'text'   },
+  { id: 'pattern',    el: 'fPattern',   type: 'text'   },
+  { id: 'season',     el: 'fSeason',    type: 'select' },
+  { id: 'price',      el: 'fRefPrice',  type: 'number' },
+  { id: 'refgarment', el: 'fRefGarment',type: 'select' },
+  { id: 'tags',       el: 'fTags',      type: 'text'   },
+];
+
+let stickyValues = {};
+
+function saveStickyValues() {
+  STICKY_FIELDS.forEach(f => {
+    const cb = document.getElementById('sticky-' + f.id);
+    if (cb && cb.checked) {
+      const el = document.getElementById(f.el);
+      if (el) stickyValues[f.id] = el.value;
+    } else {
+      delete stickyValues[f.id];
+    }
+  });
+}
+
+function restoreStickyValues() {
+  STICKY_FIELDS.forEach(f => {
+    if (stickyValues[f.id] !== undefined) {
+      const el = document.getElementById(f.el);
+      if (el) el.value = stickyValues[f.id];
+      // Re-check the checkbox
+      const cb = document.getElementById('sticky-' + f.id);
+      if (cb) cb.checked = true;
+    }
+  });
+  // Recalculate prices if price or ref garment was restored
+  if (stickyValues['price'] || stickyValues['refgarment']) updatePrices();
+}
+
+// ── Mode toggle ───────────────────────────────────────────────
+function setMode(mode) {
+  scanMode = mode;
+  document.getElementById('modeSingle').classList.toggle('active', mode === 'single');
+  document.getElementById('modePage').classList.toggle('active', mode === 'page');
+  document.getElementById('placeholderText').textContent = mode === 'page'
+    ? 'Lay the page flat, fill the frame, good light, no glare'
+    : 'Tap to open camera or upload a photo';
+  $('sessionCard').style.display = mode === 'page' ? 'block' : 'none';
+  resetScanner();
+}
+
+// ── Status ────────────────────────────────────────────────────
+function setStatus(type, msg) {
+  document.getElementById('statusDot').className = 'status-dot ' + type;
+  document.getElementById('statusText').textContent = msg;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 2800);
+}
+
+// ── Image compression ─────────────────────────────────────────
+function compressImage(sourceDataUrl, mimeType, callback) {
+  const img = new Image();
+  img.onload = () => {
+    const MAX = scanMode === 'page' ? 1600 : 1200; // page photos keep more detail so small print stays readable
+    let w = img.width, h = img.height;
+    if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+    else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    const compressed = canvas.toDataURL('image/jpeg', 0.80);
+    callback(compressed.split(',')[1], 'image/jpeg');
+  };
+  img.src = sourceDataUrl;
+}
+
+// ── Camera ────────────────────────────────────────────────────
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } }
+    });
+    const video = document.getElementById('videoEl');
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('cameraPlaceholder').style.display = 'none';
+    document.getElementById('cameraOverlay').style.display = scanMode === 'single' ? 'flex' : 'none';
+    document.getElementById('btnCamera').style.display  = 'none';
+    document.getElementById('btnCapture').style.display = 'flex';
+    document.getElementById('btnReset').style.display   = 'flex';
+  } catch(e) {
+    showToast('Camera error — try Upload instead');
+  }
+}
+
+function capturePhoto() {
+  const video = document.getElementById('videoEl');
+  if (!video.srcObject) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const rawDataUrl = canvas.toDataURL('image/jpeg', 0.90);
+  showCaptured(rawDataUrl);
+  stopCamera();
+  compressImage(rawDataUrl, 'image/jpeg', (b64, mime) => {
+    capturedMime = mime; capturedB64 = b64;
+    analyseImage();
+  });
+}
+
+function handleFileUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    showCaptured(e.target.result);
+    compressImage(e.target.result, file.type || 'image/jpeg', (b64, mime) => {
+      capturedMime = mime; capturedB64 = b64;
+      analyseImage();
+    });
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function showCaptured(src) {
+  capturedDataUrl = src; // store for bbox cropping
+  const img = document.getElementById('capturedImg');
+  img.src = src; img.style.display = 'block'; img.style.objectFit = scanMode === 'page' ? 'contain' : 'cover';
+  document.getElementById('videoEl').style.display = 'none';
+  document.getElementById('cameraPlaceholder').style.display = 'none';
+  document.getElementById('cameraOverlay').style.display = 'none';
+  document.getElementById('btnCapture').style.display = 'none';
+  document.getElementById('btnReset').style.display = 'flex';
+  document.getElementById('btnCamera').style.display = 'none';
+}
+
+function stopCamera() {
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+}
+
+function resetScanner() {
+  stopCamera();
+  document.getElementById('capturedImg').style.display = 'none';
+  document.getElementById('videoEl').style.display = 'none';
+  document.getElementById('cameraPlaceholder').style.display = 'block';
+  document.getElementById('cameraOverlay').style.display = 'none';
+  document.getElementById('btnCamera').style.display = 'flex';
+  document.getElementById('btnCapture').style.display = 'none';
+  document.getElementById('btnReset').style.display = 'none';
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('multiScanList').style.display = 'none';
+  capturedB64 = null; capturedDataUrl = null; scannedData = null; multiFabrics = []; pageItems = []; pageCounted = false;
+  if ($('btnReread')) $('btnReread').style.display = 'none'; if ($('multiWarn')) $('multiWarn').style.display = 'none';
+  setStatus('idle', 'Ready to scan');
+  // Re-check sticky field checkboxes so user can see what's remembered
+  STICKY_FIELDS.forEach(f => {
+    const cb = document.getElementById('sticky-' + f.id);
+    if (cb) cb.checked = stickyValues[f.id] !== undefined;
+  });
+}
+
+// ── Tag parser ────────────────────────────────────────────────
+function parseTags(tags) {
+  const result = { wool: null, weight: null, origin: null, season: null };
+  if (!tags || !tags.length) return result;
+  const ORIGINS = ['italy','england','uk','scotland','ireland','france','germany','japan','australia','china','portugal','india','turkey'];
+  const SEASONS = { 'spring':'spring-summer','summer':'spring-summer','autumn':'autumn-winter','winter':'autumn-winter','autumn/winter':'autumn-winter','spring/summer':'spring-summer','year round':'year-round','all season':'year-round' };
+  tags.forEach(tag => {
+    const t = tag.toLowerCase().trim();
+    const woolMatch = t.match(/(\d+)\s*%\s*wool/);
+    if (woolMatch && result.wool === null) result.wool = parseInt(woolMatch[1]);
+    if ((t === '100% wool' || t === 'pure wool') && result.wool === null) result.wool = 100;
+    const weightMatch = t.match(/(\d{2,3})\s*(?:gsm|g\/m|g\b)/);
+    if (weightMatch && result.weight === null) result.weight = parseInt(weightMatch[1]);
+    if (result.origin === null) { for (const o of ORIGINS) { if (t === o || t === 'made in ' + o) { result.origin = o.charAt(0).toUpperCase()+o.slice(1); break; } } }
+    if (result.season === null && SEASONS[t]) result.season = SEASONS[t];
+  });
+  return result;
+}
+
+// ── Analysis ──────────────────────────────────────────────────
+
+
+// ── Crop swatch from page image using bbox ─────────────────────
+
+
+// ── Single scan ───────────────────────────────────────────────
+function populateFields(d) {
+  document.getElementById('fCode').value = (d.code||'').toUpperCase();
+  document.getElementById('fMill').value = d.mill||'';
+  document.getElementById('fBook').value = d.book||'';
+
+  const tags = Array.isArray(d.tags) ? d.tags : (d.tags||'').split(',').map(t=>t.trim()).filter(Boolean);
+  const comp = d.composition || {};
+  const fromTags = parseTags(tags);
+
+  // Fill composition fields — structured fields first, fall back to tag parsing
+  document.getElementById('fWool').value    = comp.wool      ?? fromTags.wool   ?? '';
+  document.getElementById('fCotton').value  = comp.cotton    ?? '';
+  document.getElementById('fPoly').value    = comp.polyester ?? '';
+  document.getElementById('fNylon').value   = comp.nylon     ?? '';
+  document.getElementById('fSilk').value    = comp.silk      ?? '';
+  document.getElementById('fLinen').value   = comp.linen     ?? '';
+  document.getElementById('fWeight').value  = comp.weight    ?? fromTags.weight ?? '';
+  document.getElementById('fOrigin').value  = comp.origin    || fromTags.origin || '';
+  document.getElementById('fColor').value   = comp.color     || d.color         || '';
+  document.getElementById('fPattern').value = comp.pattern   || d.pattern       || '';
+
+  const season = comp.season || fromTags.season || '';
+  if (season) {
+    const sel = document.getElementById('fSeason');
+    for (let o of sel.options) { if (o.value === season) { sel.value = season; break; } }
+  }
+
+  document.getElementById('fTags').value  = tags.join(', ');
+  document.getElementById('fNotes').value = d.notes || '';
+
+  // Build preview card
+  const compParts = [
+    comp.cotton    ? comp.cotton    + '% Cotton'    : '',
+    comp.wool      ? comp.wool      + '% Wool'      : '',
+    comp.polyester ? comp.polyester + '% Polyester' : '',
+    comp.nylon     ? comp.nylon     + '% Nylon'     : '',
+    comp.silk      ? comp.silk      + '% Silk'      : '',
+    comp.linen     ? comp.linen     + '% Linen'     : '',
+    comp.weight    ? comp.weight    + 'gsm'         : '',
+    comp.origin    || '',
+    d.color        || '',
+    d.pattern      || '',
+  ].filter(Boolean).join(' · ');
+
+  document.getElementById('previewCard').innerHTML =
+    '<div class="preview-code">' + (d.code||'—') + '</div>' +
+    '<div class="preview-mill">' + [d.mill, d.book].filter(Boolean).join(' · ') + '</div>' +
+    (compParts ? '<div class="preview-mill" style="margin-top:4px;font-size:12px;">' + compParts + '</div>' : '') +
+    (d.notes ? '<div class="preview-mill" style="margin-top:4px;font-size:11px;font-style:italic;opacity:0.7;">' + d.notes + '</div>' : '') +
+    (tags.length ? '<div class="preview-tags">' + tags.map(t=>'<span class="preview-tag">'+t+'</span>').join('') + '</div>' : '');
+
+  updatePrices();
+}
+
+function updatePrices() {
+  const refGarment = document.getElementById('fRefGarment').value;
+  const refPrice   = parseFloat(document.getElementById('fRefPrice').value) || 0;
+  const refRatio   = YARDAGE[refGarment] || 1;
+  document.getElementById('priceGrid').innerHTML = GARMENTS.map(g => {
+    const price = refPrice > 0 ? (refPrice * (YARDAGE[g] / refRatio)).toFixed(2) : '';
+    return '<div class="price-field"><label>' + g + '</label><input type="number" value="' + price + '" step="0.01" min="0" id="price_' + g.replace(/[^a-zA-Z0-9]/g,'_') + '"></div>';
+  }).join('');
+}
+
+// ── Page scan ─────────────────────────────────────────────────
+
+
+
+
+
+
+// ── Save single ───────────────────────────────────────────────
+async function saveToSupabase() {
+  const code = document.getElementById('fCode').value.trim().toUpperCase();
+  if (!code) { showToast('Please enter a fabric code'); return; }
+  const btn = document.getElementById('btnSave');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    const wholesalePrices = {};
+    GARMENTS.forEach(g => {
+      const el = document.getElementById('price_' + g.replace(/[^a-zA-Z0-9]/g,'_'));
+      if (el && el.value) wholesalePrices[g] = parseFloat(el.value);
+    });
+    const tags = document.getElementById('fTags').value.split(',').map(t=>t.trim()).filter(Boolean);
+    let swatchUrl = null;
+    if (capturedB64) {
+      try {
+        const safeCode = code.replace(/[^a-zA-Z0-9\-_]/g, '_');
+        const fileName = safeCode + '_' + Date.now() + '.jpg';
+        const byteStr  = atob(capturedB64);
+        const bytes    = new Uint8Array(byteStr.length);
+        for (let i = 0; i < byteStr.length; i++) bytes[i] = byteStr.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'image/jpeg' });
+        const uploadRes = await fetch(SUPABASE_URL + '/storage/v1/object/fabric-swatches/' + fileName, {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'image/jpeg' },
+          body: blob
+        });
+        if (uploadRes.ok) swatchUrl = SUPABASE_URL + '/storage/v1/object/public/fabric-swatches/' + fileName;
+      } catch(e) { console.warn('Image upload failed:', e); }
+    }
+    const fabric = {
+      code,
+      mill:   document.getElementById('fMill').value.trim()||null,
+      book:   document.getElementById('fBook').value.trim()||null,
+      status: document.getElementById('fStatus').value||'active',
+      tags,
+      composition: {
+        wool:      parseFloat(document.getElementById('fWool').value)||null,
+        cotton:    parseFloat(document.getElementById('fCotton').value)||null,
+        polyester: parseFloat(document.getElementById('fPoly').value)||null,
+        nylon:     parseFloat(document.getElementById('fNylon').value)||null,
+        silk:      parseFloat(document.getElementById('fSilk').value)||null,
+        linen:     parseFloat(document.getElementById('fLinen').value)||null,
+        weight:    parseFloat(document.getElementById('fWeight').value)||null,
+        origin:    document.getElementById('fOrigin').value.trim()||null,
+        color:     document.getElementById('fColor').value.trim()||null,
+        pattern:   document.getElementById('fPattern').value.trim()||null,
+        season:    document.getElementById('fSeason').value||null,
+      },
+      wholesale_prices: wholesalePrices,
+      notes:      document.getElementById('fNotes').value.trim()||null,
+      swatch_url: swatchUrl,
+      scanned_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    await smartUpsert(fabric, $('replaceBookSingle').checked);
+    showToast('✓ ' + code + ' saved');
+    setStatus('done', code + ' saved to Fabric Inventory');
+    btn.textContent = '✓ Saved!'; btn.style.background = 'var(--forest)';
+    saveStickyValues(); // remember checked fields for next scan
+    setTimeout(() => { resetScanner(); btn.disabled=false; btn.textContent='💾 Save to Inventory'; btn.style.background=''; }, 2000);
+  } catch(err) {
+    showToast('Save failed: ' + err.message);
+    btn.disabled = false; btn.textContent = '💾 Save to Inventory';
+  }
+}
+
+// ── Save all (page scan) ──────────────────────────────────────
+
+
+// ── Upsert helper ─────────────────────────────────────────────
+
+// ════════════════════════════════════════════════════════════════
+//  v5 — shared helpers (same rules as the ERP's PDF importer)
+// ════════════════════════════════════════════════════════════════
+const FIBERS = [['wool','Wool'],['cotton','Cotton'],['polyester','Polyester'],['nylon','Nylon'],['silk','Silk'],['linen','Linen'],
+                ['viscose','Viscose'],['elastane','Elastane'],['cashmere','Cashmere'],['mohair','Mohair'],['acrylic','Acrylic']];
+const FIBER_KEYS = FIBERS.map(f => f[0]);
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+const numOrNull = v => { if (v === null || v === undefined || v === '') return null; const n = parseFloat(String(v).replace('%','')); return isNaN(n) ? null : n; };
+function normCode(raw) {
+  if (!raw) return '';
+  return String(raw).trim().toUpperCase().replace(/\s*-\s*/g,'-').replace(/\s*\/\s*/g,'/').replace(/\s+/g,' ').trim();
+}
+function normSeason(s) {
+  if (!s) return '';
+  const t = String(s).toLowerCase().replace(/[\s_]+/g,'-').replace(/\//g,'-');
+  if (/spring|summer|^ss$/.test(t) && !/autumn|winter|fall/.test(t)) return 'spring-summer';
+  if (/autumn|winter|fall|^aw$/.test(t) && !/spring|summer/.test(t)) return 'autumn-winter';
+  if (/year|all/.test(t) || (/spring|summer/.test(t) && /autumn|winter/.test(t))) return 'year-round';
+  return '';
+}
+// A fabric can sit in several books: the book field holds "M54 / R61"
+const fabBooks = f => String((f && f.book) || '').split(' / ').map(x => x.trim()).filter(Boolean);
+function mergeBooks(existingBook, newBook, replace) {
+  const ex = fabBooks({ book: existingBook }), nb = String(newBook || '').trim();
+  let books;
+  if (!nb) books = ex;
+  else if (replace) books = [nb];
+  else books = ex.some(x => x.toLowerCase() === nb.toLowerCase()) ? ex : ex.concat(nb);
+  return books.join(' / ') || null;
+}
+const codeShape = c => String(c || '').toUpperCase().replace(/[0-9]+/g, '9');
+const REST_H = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY };
+
+// ── Book session (page mode) ────────────────────────────────────
+let session = { pages: 0, saved: 0, seen: {}, shapes: {}, replace: false, flagged: 0 };
+function sessionLoad() {
+  try { $('sBook').value = localStorage.getItem('wn_book') || ''; $('sMill').value = localStorage.getItem('wn_mill') || ''; } catch(e) {}
+}
+function sessionPersist() { try { localStorage.setItem('wn_book', $('sBook').value.trim()); localStorage.setItem('wn_mill', $('sMill').value.trim()); } catch(e) {} }
+function sessionSetReplace(on) {
+  session.replace = on;
+  $('sAdd').classList.toggle('active', !on); $('sRep').classList.toggle('active', on);
+}
+function sessionNewBook() {
+  session = { pages: 0, saved: 0, seen: {}, shapes: {}, replace: false, flagged: 0 };
+  $('sBook').value = ''; $('sMill').value = ''; sessionPersist(); sessionSetReplace(false); sessionRender(); resetScanner();
+  $('sBook').focus();
+}
+function sessionRender(extra) {
+  const b = $('sBook').value.trim();
+  $('sessionStats').innerHTML = (b ? '<b>' + esc(b) + '</b> · ' : '') + session.pages + ' page' + (session.pages === 1 ? '' : 's') + ' · ' + session.saved + ' saved' +
+    (session.flagged ? ' · <span style="color:var(--brass-bright);">' + session.flagged + ' flagged</span>' : '') + (extra ? ' · ' + extra : '');
+}
+async function sessionCheckBook() {
+  const b = $('sBook').value.trim();
+  if (!b) { showToast('Type the book name first'); return; }
+  sessionRender('checking…');
+  const n = await bookCount(b);
+  sessionRender(n == null ? '' : n + ' in inventory');
+  showToast(n == null ? 'Could not check' : b + ' has ' + n + ' fabrics in inventory now');
+}
+async function bookCount(book) {
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/fabrics?select=book&book=ilike.' + encodeURIComponent('*' + book + '*') + '&limit=5000', { headers: REST_H });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows.filter(r => fabBooks(r).some(x => x.toLowerCase() === book.toLowerCase())).length;
+  } catch(e) { return null; }
+}
+
+// ── Existing inventory lookup (so the review shows NEW vs UPDATE) ──
+async function fetchExisting(codes) {
+  const map = {};
+  const list = [...new Set(codes.filter(Boolean))];
+  for (let i = 0; i < list.length; i += 40) {
+    const chunk = list.slice(i, i + 40).map(c => '"' + c.replace(/"/g, '') + '"').join(',');
+    try {
+      const res = await fetch(SUPABASE_URL + '/rest/v1/fabrics?select=id,code,mill,book,status,tags,composition,notes,swatch_url,wholesale_prices&code=in.(' + encodeURIComponent(chunk) + ')', { headers: REST_H });
+      if (res.ok) (await res.json()).forEach(r => { map[String(r.code).toUpperCase()] = r; });
+    } catch(e) {}
+  }
+  return map;
+}
+
+// ── Merge a scan into an existing fabric without wiping good data ──
+function mergeFabric(row, ex, replaceBook) {
+  ex = ex || {};
+  const merged = { ...(ex.composition || {}) };
+  const hasFibers = FIBER_KEYS.some(k => row.comp[k] != null);
+  if (hasFibers) { FIBER_KEYS.forEach(k => { merged[k] = row.comp[k] ?? null; }); }   // a fibre list is a set: replace it whole
+  ['weight','width','super','origin','season','color','pattern','other'].forEach(k => { const v = row.comp[k]; if (v !== null && v !== undefined && v !== '') merged[k] = v; });
+  return {
+    code: row.code,
+    mill: row.mill || ex.mill || null,
+    book: mergeBooks(ex.book, row.book, replaceBook),
+    status: row.status || ex.status || 'active',
+    tags: [...new Set([...(ex.tags || []), ...(row.tags || [])])],
+    composition: merged,
+    notes: row.notes || ex.notes || null,
+    scanned_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+async function uploadSwatch(code, b64) {
+  if (!b64) return null;
+  try {
+    const fileName = code.replace(/[^a-zA-Z0-9\-_]/g, '_') + '_' + Date.now() + '.jpg';
+    const bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const up = await fetch(SUPABASE_URL + '/storage/v1/object/fabric-swatches/' + fileName, { method: 'POST', headers: { 'Authorization': 'Bearer ' + SUPABASE_KEY, 'Content-Type': 'image/jpeg' }, body: new Blob([bytes], { type: 'image/jpeg' }) });
+    return up.ok ? SUPABASE_URL + '/storage/v1/object/public/fabric-swatches/' + fileName : null;
+  } catch(e) { return null; }
+}
+async function writeFabric(fabric, ex) {
+  const body = JSON.stringify(fabric);
+  const h = { 'Content-Type': 'application/json', ...REST_H, 'Prefer': 'return=minimal' };
+  const res = ex && ex.id
+    ? await fetch(SUPABASE_URL + '/rest/v1/fabrics?id=eq.' + ex.id, { method: 'PATCH', headers: h, body })
+    : await fetch(SUPABASE_URL + '/rest/v1/fabrics', { method: 'POST', headers: h, body });
+  if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Analysis — retries + real error messages
+// ════════════════════════════════════════════════════════════════
+let pageCounted = false;
+async function analyseImage() {
+  if (!capturedB64) return;
+  const isPage = scanMode === 'page';
+  $('resultsSection').style.display = 'none';
+  $('multiScanList').style.display = 'none';
+  let json = null, lastErr = '';
+  for (let attempt = 1; attempt <= 3 && !json; attempt++) {
+    setStatus('scanning', isPage ? (attempt > 1 ? 'Retry ' + attempt + ' of 3…' : 'Reading page — this may take 10-20 seconds...') : (attempt > 1 ? 'Retry ' + attempt + ' of 3…' : 'Reading fabric label...'));
+    if (attempt > 1) await new Promise(r => setTimeout(r, 2500 * attempt));
+    try {
+      const res = await fetch(EDGE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SUPABASE_KEY },
+        body: JSON.stringify({ imageBase64: capturedB64, mediaType: capturedMime, mode: isPage ? 'page' : 'single' })
+      });
+      let j = null; try { j = await res.json(); } catch(_) {}
+      if (res.ok && j && j.success) json = j;
+      else lastErr = 'HTTP ' + res.status + ' ' + String((j && j.error) || '').slice(0, 140);
+    } catch(e) { lastErr = e.message || String(e); }
+  }
+  if (!json) { setStatus('error', 'Could not read: ' + lastErr); showToast('Could not read — tap Re-read to try again'); if (isPage) $('btnReread').style.display = 'flex'; return; }
+  if (isPage) { await handlePageScanResult(json.data, !!json.truncated); }
+  else {
+    scannedData = json.data;
+    populateFields(scannedData);
+    restoreStickyValues();
+    setStatus('done', 'Fabric read — review and save');
+    $('resultsSection').style.display = 'block';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Page scan — review list
+// ════════════════════════════════════════════════════════════════
+let pageItems = [], pageExisting = {};
+const boxValid = b => !!b && [b.left, b.top, b.right, b.bottom].every(v => typeof v === 'number' && isFinite(v)) && (b.right - b.left) > 2 && (b.bottom - b.top) > 2 && b.left >= -1 && b.top >= -1 && b.right <= 101 && b.bottom <= 101;
+function pickBox(f) {
+  const area = b => (b.right - b.left) * (b.bottom - b.top);
+  if (boxValid(f.cardBbox) && area(f.cardBbox) <= 4500) return f.cardBbox;   // includes the printed code label
+  if (boxValid(f.bbox)) return f.bbox;
+  return null;
+}
+function loadImg(src) { return new Promise(res => { const i = new Image(); i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }); }
+function cropFromImg(img, box, maxPx, pad) {
+  if (!img || !box) return null;
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+  const l = Math.max(0, Math.floor(((box.left - pad) / 100) * w)), t = Math.max(0, Math.floor(((box.top - pad) / 100) * h));
+  const r = Math.min(w, Math.ceil(((box.right + pad) / 100) * w)), b = Math.min(h, Math.ceil(((box.bottom + pad) / 100) * h));
+  const cw = Math.max(r - l, 1), ch = Math.max(b - t, 1);
+  let fw = cw, fh = ch;
+  if (fw > fh) { if (fw > maxPx) { fh = Math.round(fh * maxPx / fw); fw = maxPx; } } else { if (fh > maxPx) { fw = Math.round(fw * maxPx / fh); fh = maxPx; } }
+  const c = document.createElement('canvas'); c.width = fw; c.height = fh;
+  c.getContext('2d').drawImage(img, l, t, cw, ch, 0, 0, fw, fh);
+  return c.toDataURL('image/jpeg', 0.80).split(',')[1];
+}
+function makeItem(f, defBook, defMill) {
+  const c = f.composition || {}, comp = {};
+  FIBER_KEYS.forEach(k => { comp[k] = numOrNull(c[k]); });
+  ['weight','width','super'].forEach(k => { comp[k] = numOrNull(c[k]); });
+  comp.other = c.other ? String(c.other).trim() : null;
+  comp.origin = c.origin ? String(c.origin).trim() : null;
+  comp.season = normSeason(c.season) || null;
+  comp.color = (f.color || c.color || '').toString().trim() || null;
+  comp.pattern = (f.pattern || c.pattern || '').toString().trim() || null;
+  return {
+    code: normCode(f.code), mill: defMill || String(f.mill || '').trim(), book: defBook || String(f.book || '').trim(),
+    tags: Array.isArray(f.tags) ? f.tags.map(t => String(t).trim()).filter(Boolean) : [], notes: f.notes ? String(f.notes).trim() : '',
+    comp, box: pickBox(f) || (boxValid(f.bbox) ? f.bbox : null), thumb: null, fixedFrom: '', odd: false
+  };
+}
+// If most codes in this book share a pattern (e.g. 6 digits), repair look-alike letters in the odd ones out (S→5, I/L→1, O→0)
+function learnAndFixCodes(items) {
+  items.forEach(i => { if (i.code) { const sh = codeShape(i.code); if (!/[A-Z]/.test(sh)) session.shapes[sh] = (session.shapes[sh] || 0) + 1; } });
+  const total = Object.values(session.shapes).reduce((a, b) => a + b, 0);
+  const top = Object.entries(session.shapes).sort((a, b) => b[1] - a[1])[0];
+  if (!top || top[1] < Math.max(5, total * 0.6)) return 0;
+  const dom = top[0]; let fixed = 0;
+  items.forEach(i => {
+    if (!i.code || codeShape(i.code) === dom) return;
+    const alt = i.code.replace(/S/g, '5').replace(/[IL]/g, '1').replace(/O/g, '0');
+    if (codeShape(alt) === dom) { i.fixedFrom = i.code; i.code = alt; fixed++; } else i.odd = true;
+  });
+  return fixed;
+}
+async function handlePageScanResult(data, truncated) {
+  let raw = Array.isArray(data) ? data : (data && data.fabrics) || (data ? [data] : []);
+  raw = raw.filter(f => f && typeof f === 'object');
+  $('btnReread').style.display = 'flex';
+  const defBook = $('sBook').value.trim(), defMill = $('sMill').value.trim();
+  sessionPersist();
+  pageItems = raw.map(f => makeItem(f, defBook, defMill));
+  if (!pageItems.length) { setStatus('error', 'No fabrics found on this page'); showToast('No fabrics detected — retake closer, or this is a cover page'); $('multiScanList').style.display = 'none'; if (!pageCounted) { session.pages++; pageCounted = true; sessionRender(); } return; }
+  setStatus('scanning', 'Checking ' + pageItems.length + ' swatches…');
+  const fixed = learnAndFixCodes(pageItems);
+  const counts = {}; pageItems.forEach(i => { if (i.code) counts[i.code] = (counts[i.code] || 0) + 1; });
+  pageExisting = await fetchExisting(pageItems.map(i => i.code));
+  const img = await loadImg(capturedDataUrl);
+  pageItems.forEach(i => { i.thumb = cropFromImg(img, i.box, 600, 1.2); i.dup = i.code && counts[i.code] > 1; i.seenPage = i.code ? session.seen[i.code] : null; });
+  if (!pageCounted) { session.pages++; pageCounted = true; }
+  const flagged = pageItems.filter(i => !i.code || i.odd || i.dup || i.fixedFrom).length;
+  setStatus('done', pageItems.length + ' swatches' + (fixed ? ' · ' + fixed + ' code' + (fixed > 1 ? 's' : '') + ' auto-fixed' : '') + (flagged ? ' · ' + flagged + ' to check' : '') + ' — review and save');
+  $('multiScanHeader').textContent = pageItems.length + ' swatches · page ' + session.pages;
+  $('selectAllFabrics').checked = true;
+  $('multiWarn').innerHTML = truncated ? '⚠ This page was very dense — some swatches may be missing. Tap <b>Re-read</b>, or retake it closer / photograph the top and bottom halves separately.' : '';
+  $('multiWarn').style.display = truncated ? 'block' : 'none';
+  sessionRender();
+  renderPageCards();
+  $('multiScanList').style.display = 'block';
+}
+function badge(text, color) { return `<span style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:9px;margin-left:5px;color:${color};border:1px solid ${color};white-space:nowrap;">${text}</span>`; }
+function renderPageCards() {
+  $('multiFabricCards').innerHTML = pageItems.map((it, idx) => {
+    const ex = pageExisting[it.code];
+    const comp = it.comp;
+    const compParts = FIBERS.filter(([k]) => comp[k]).map(([k, l]) => comp[k] + '% ' + l).concat(comp.weight ? [comp.weight + 'gsm'] : [], comp.origin ? [comp.origin] : []).join(' · ');
+    const thumb = it.thumb ? `<img src="data:image/jpeg;base64,${it.thumb}" style="width:56px;height:56px;object-fit:cover;border-radius:2px;border:1px solid rgba(237,231,220,0.15);flex-shrink:0;">`
+      : `<div style="width:56px;height:56px;background:rgba(255,255,255,0.04);border:1px solid rgba(237,231,220,0.1);border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;opacity:0.3;">▦</div>`;
+    const badges = [
+      !it.code ? badge('NO CODE', '#d9694a') : '',
+      it.odd ? badge('CHECK CODE', '#d9694a') : '',
+      it.fixedFrom ? badge('FIXED ' + esc(it.fixedFrom) + '→', '#c9a15e') : '',
+      it.dup ? badge('DUPLICATE ON PAGE', '#d9694a') : '',
+      it.seenPage ? badge('ALREADY SAVED THIS SESSION', '#c9a15e') : '',
+      it.code ? (ex ? badge('IN INVENTORY' + (fabBooks(ex).length ? ' · ' + esc(fabBooks(ex).join(' / ')) : ''), '#8fb89f') : badge('NEW', '#8fb89f')) : ''
+    ].join('');
+    const inp = (id, label, val, type, extra) => `<div class="multi-fabric-field"><label>${label}</label><input type="${type || 'text'}" id="mf-${id}-${idx}" value="${esc(val == null ? '' : val)}" ${extra || ''}></div>`;
+    return `
+      <div class="multi-fabric-card" id="mcard-${idx}" ${(!it.code || it.odd || it.dup) ? 'style="border-color:rgba(217,105,74,0.55);"' : ''}>
+        <div class="multi-fabric-header" onclick="toggleMultiCard(${idx})">
+          <input type="checkbox" class="multi-fabric-check" id="mcheck-${idx}" ${it.code && !it.dup ? 'checked' : ''} onclick="event.stopPropagation()">
+          ${thumb}
+          <div style="flex:1;min-width:0;">
+            <div class="multi-fabric-code" id="mcode-display-${idx}">${esc(it.code) || '—'}</div>
+            <div class="multi-fabric-meta">${esc([it.mill, comp.color, comp.pattern].filter(Boolean).join(' · '))}</div>
+            ${compParts ? `<div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(237,231,220,0.3);margin-top:2px;">${esc(compParts)}</div>` : ''}
+            <div style="margin-top:4px;line-height:1.9;">${badges}</div>
+          </div>
+          <span style="font-size:18px;color:rgba(237,231,220,0.2);margin-left:6px;flex-shrink:0;">›</span>
+        </div>
+        <div class="multi-fabric-body" id="mbody-${idx}">
+          <div class="multi-fabric-field"><label>Fabric Code *</label>
+            <input type="text" id="mf-code-${idx}" value="${esc(it.code)}" style="font-family:'JetBrains Mono',monospace;font-weight:700;text-transform:uppercase;" oninput="document.getElementById('mcode-display-${idx}').textContent=this.value.toUpperCase()"></div>
+          <div class="multi-fabric-field-row">${inp('mill', 'Mill', it.mill)}${inp('book', 'Book (added to the fabric’s books)', it.book)}</div>
+          <div class="multi-fabric-field-row">${FIBERS.slice(0, 6).map(([k, l]) => inp(k, l + ' %', comp[k], 'number', 'min="0" max="100"')).join('')}</div>
+          <div class="multi-fabric-field-row">${FIBERS.slice(6).map(([k, l]) => inp(k, l + ' %', comp[k], 'number', 'min="0" max="100"')).join('')}</div>
+          <div class="multi-fabric-field-row">${inp('weight', 'Weight g/m²', comp.weight, 'number')}${inp('origin', 'Origin', comp.origin)}</div>
+          <div class="multi-fabric-field-row">${inp('color', 'Color', comp.color)}${inp('pattern', 'Pattern', comp.pattern)}</div>
+          <div class="multi-fabric-field"><label>Tags</label><input type="text" id="mf-tags-${idx}" value="${esc(it.tags.join(', '))}"></div>
+          <div class="multi-fabric-field"><label>Notes</label><input type="text" id="mf-notes-${idx}" value="${esc(it.notes)}"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+function toggleMultiCard(idx) { $('mbody-' + idx).classList.toggle('open'); }
+function toggleSelectAll(cb) { document.querySelectorAll('.multi-fabric-check').forEach(c => c.checked = cb.checked); }
+const mfv = (k, i) => ($('mf-' + k + '-' + i)?.value || '').trim();
+
+// ── Check page: photo with the detected boxes drawn on it ───────
+function showPageCheck() {
+  if (!capturedDataUrl) return;
+  const boxes = pageItems.filter(i => i.box).map(i => {
+    const b = i.box, bad = !i.code || i.odd || i.dup;
+    return `<div style="position:absolute;left:${b.left}%;top:${b.top}%;width:${b.right - b.left}%;height:${b.bottom - b.top}%;border:2px solid ${bad ? '#d9694a' : '#4fae82'};box-sizing:border-box;">` +
+           `<span style="position:absolute;left:0;top:0;transform:translateY(-100%);background:${bad ? '#d9694a' : '#4fae82'};color:#fff;font:700 10px 'JetBrains Mono',monospace;padding:1px 4px;white-space:nowrap;">${esc(i.code || 'no code')}</span></div>`;
+  }).join('');
+  const ov = document.createElement('div'); ov.id = 'pageCheck';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);overflow:auto;padding:12px;';
+  ov.onclick = () => ov.remove();
+  ov.innerHTML = `<div style="color:#EDE7DC;font:600 12px 'JetBrains Mono',monospace;margin-bottom:8px;">${pageItems.length} swatches found — green = fine, red = check · tap anywhere to close</div>
+    <div style="position:relative;display:inline-block;max-width:100%;"><img src="${capturedDataUrl}" style="display:block;max-width:100%;height:auto;">${boxes}</div>`;
+  document.body.appendChild(ov);
+}
+function rereadPage() { if (!capturedB64) return; analyseImage(); }
+
+// ── Save all (page scan) ────────────────────────────────────────
+async function saveAllFabrics() {
+  const btn = $('btnSaveAll');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const picks = [];
+  pageItems.forEach((it, idx) => { const cb = $('mcheck-' + idx); const code = normCode(mfv('code', idx)); if (cb && cb.checked && code) picks.push({ it, idx, code }); });
+  if (!picks.length) { showToast('Nothing ticked to save'); btn.disabled = false; btn.textContent = '💾 Save Selected to Inventory'; return; }
+  const existing = await fetchExisting(picks.map(p => p.code));   // fresh copy so nothing is overwritten with old data
+  let saved = 0, failed = 0; const failedCodes = [];
+  for (const p of picks) {
+    const { it, idx, code } = p;
+    try {
+      const comp = {};
+      FIBER_KEYS.forEach(k => { comp[k] = numOrNull(mfv(k, idx)); });
+      comp.weight = numOrNull(mfv('weight', idx)); comp.width = it.comp.width; comp.super = it.comp.super; comp.other = it.comp.other;
+      comp.origin = mfv('origin', idx) || null; comp.season = it.comp.season; comp.color = mfv('color', idx) || null; comp.pattern = mfv('pattern', idx) || null;
+      const row = { code, mill: mfv('mill', idx), book: mfv('book', idx), status: '', tags: mfv('tags', idx).split(',').map(t => t.trim()).filter(Boolean), notes: mfv('notes', idx), comp };
+      const ex = existing[code];
+      const fabric = mergeFabric(row, ex, session.replace);
+      const url = await uploadSwatch(code, it.thumb);
+      if (url) fabric.swatch_url = url;                // if the photo upload fails, keep the old swatch instead of blanking it
+      await writeFabric(fabric, ex);
+      session.seen[code] = session.pages;
+      const card = $('mcard-' + idx);
+      if (card) { card.style.borderColor = 'rgba(47,74,60,0.8)'; card.style.background = 'rgba(47,74,60,0.08)'; }
+      saved++; setStatus('scanning', 'Saving... ' + saved + ' done');
+    } catch(e) {
+      console.warn('Failed to save ' + code, e); failed++; failedCodes.push(code);
+      const card = $('mcard-' + idx); if (card) card.style.borderColor = 'rgba(176,73,44,0.8)';
+    }
+  }
+  session.saved += saved;
+  session.flagged += pageItems.filter(i => !i.code || i.odd || i.dup || i.fixedFrom).length;
+  sessionRender();
+  btn.disabled = false; btn.textContent = '💾 Save Selected to Inventory';
+  if (failed) { setStatus('error', saved + ' saved, ' + failed + ' FAILED: ' + failedCodes.join(', ')); showToast(failed + ' failed — tap Save again to retry those'); return; }
+  setStatus('done', saved + ' saved — ready for the next page');
+  showToast('✓ ' + saved + ' fabric' + (saved !== 1 ? 's' : '') + ' saved');
+  const b = $('sBook').value.trim();
+  if (b) bookCount(b).then(n => { if (n != null) sessionRender(n + ' in inventory'); });
+  pageItems = []; pageCounted = false;
+  setTimeout(() => { resetScanner(); if (scanMode === 'page') startCamera(); }, 900);
+}
+
+// ── Single save: merge instead of overwrite ─────────────────────
+async function smartUpsert(fabric, replaceBook) {
+  const ex = (await fetchExisting([fabric.code]))[fabric.code];
+  const out = { ...fabric };
+  if (ex) {
+    out.book = mergeBooks(ex.book, fabric.book, replaceBook);
+    out.tags = [...new Set([...(ex.tags || []), ...(fabric.tags || [])])];
+    const comp = { ...(ex.composition || {}) };
+    Object.entries(fabric.composition || {}).forEach(([k, v]) => { if (v !== null && v !== undefined && v !== '') comp[k] = v; });
+    out.composition = comp;
+    out.notes = fabric.notes || ex.notes || null;
+    out.mill = fabric.mill || ex.mill || null;
+    if (!fabric.swatch_url) delete out.swatch_url;
+    const wp = fabric.wholesale_prices || {};
+    if (Object.keys(wp).length) out.wholesale_prices = { ...(ex.wholesale_prices || {}), ...wp }; else delete out.wholesale_prices;
+  }
+  await writeFabric(out, ex);
+}
+
+sessionLoad(); sessionRender();
+</script>
+</body>
+</html>
